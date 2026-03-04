@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html>
+<head>
+<base target="_top">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet">
+<style>
+  /* --- ESTILOS GENERALES --- */
+  body { font-family: 'Roboto', sans-serif; background: #f4f4f9; margin: 0; padding: 0; display: flex; height: 100vh; overflow: hidden; }
+  
+  /* Layout */
+  .main-container { flex: 1; padding: 20px; overflow-y: auto; }
+  .cart-container { width: 350px; background: white; border-left: 1px solid #ddd; display: flex; flex-direction: column; box-shadow: -2px 0 10px rgba(0,0,0,0.1); height: 100vh; }
+  
+  /* GRID DE PRODUCTOS */
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 15px; }
+  .card { background: white; border-radius: 10px; padding: 10px; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,0.05); border: 1px solid #eee; display: flex; flex-direction: column; justify-content: space-between; }
+  .card:hover { border-color: #007bff; }
+  .card img { width: 100%; height: 100px; object-fit: contain; margin-bottom: 10px; }
+  .card h3 { margin: 5px 0; font-size: 14px; color: #333; height: 35px; overflow: hidden; }
+  .price { font-weight: bold; color: #28a745; font-size: 16px; margin-bottom: 5px; }
+  .stock { font-size: 11px; color: #888; margin-bottom: 8px; }
+  
+  /* Controles dentro de la tarjeta */
+  .card-controls { display: flex; gap: 5px; align-items: center; justify-content: center; margin-top: 10px; }
+  .qty-input { width: 50px; padding: 5px; text-align: center; border: 1px solid #ddd; border-radius: 4px; }
+  .btn-add { background: #007bff; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; flex: 1; }
+  .btn-add:hover { background: #0056b3; }
+  .btn-lamina { background: #17a2b8; width: 100%; margin-top: 10px; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; }
+
+  /* CARRITO */
+  .cart-header { padding: 15px; background: #333; color: white; }
+  .cart-items { flex: 1; overflow-y: auto; padding: 10px; }
+  .cart-item { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding: 8px 0; font-size: 13px; }
+  .btn-remove { background: none; border: none; cursor: pointer; color: #ff4d4d; font-size: 16px; }
+  
+  .cart-footer { padding: 15px; background: #f9f9f9; border-top: 1px solid #ddd; }
+  .total-row { display: flex; justify-content: space-between; font-size: 18px; font-weight: bold; margin-bottom: 10px; }
+  
+  /* BOTONES DEL CARRITO */
+  .btn-pay { width: 100%; padding: 12px; background: #28a745; color: white; border: none; border-radius: 5px; font-size: 16px; cursor:pointer; font-weight: bold; }
+  .btn-pay:hover { background: #218838; }
+  .btn-pay:disabled { background: #ccc; }
+  
+  .btn-quote { width: 100%; padding: 12px; background: #ffc107; color: #333; border: none; border-radius: 5px; font-size: 16px; cursor: pointer; font-weight: bold; margin-bottom: 10px; }
+  .btn-quote:hover { background: #e0a800; }
+
+  /* MODAL */
+  .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background: rgba(0,0,0,0.5); align-items: center; justify-content: center; z-index: 1000; }
+  .modal-content { background: white; padding: 25px; border-radius: 10px; width: 300px; text-align: center; }
+  .modal-btn { padding: 10px; margin: 5px 0; border: none; border-radius: 5px; cursor: pointer; width: 100%; }
+  .btn-full { background: #007bff; color: white; }
+  .btn-half { background: #17a2b8; color: white; }
+  .btn-cancel { background: #ccc; color: #333; }
+
+  /* IMPRESIÓN */
+  #ticket-area { display: none; }
+  .ticket {
+    width: 280px; /* ideal para 80mm */
+    font-family: monospace;
+    font-size: 12px;
+  }
+
+  .ticket-header {
+    text-align: center;
+  }
+
+  .ticket-logo {
+    width: 150px;   /* Ajustable */
+    max-width: 100%;
+    margin-bottom: 5px;
+  }
+
+  .ticket-divider {
+    border-top: 1px dashed black;
+    margin: 5px 0;
+  }
+
+  .ticket-line {
+    display: flex;
+    justify-content: space-between;
+  }
+
+  .ticket-total {
+    display: flex;
+    justify-content: space-between;
+    font-weight: bold;
+    font-size: 14px;
+    margin-top: 5px;
+  }
+
+  .ticket-footer {
+    text-align: center;
+    margin-top: 10px;
+  }
+
+  @media print {
+    body > .main-container, body > .cart-container, body > .modal { display: none !important; }
+    #ticket-area { 
+      display: block; position: absolute; left: 0; top: 0; width: 72mm; 
+      font-family: 'Courier New', monospace; font-size: 12px; color: black; 
+    }
+    @page { margin: 0; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="main-container">
+    <h2 style="margin-top:0">Ferretería - Catálogo</h2>
+    <div id="grid" class="grid">Cargando productos...</div>
+  </div>
+
+  <div class="cart-container">
+    <div class="cart-header">
+      <h3 style="margin:0">🛒 Carrito</h3>
+    </div>
+    <div id="cart-items" class="cart-items"></div>
+    <div class="cart-footer">
+      <div class="total-row">
+        <span>Total:</span>
+        <span id="total-display">$0</span>
+      </div>
+      <button id="btn-cotizar" class="btn-quote" onclick="procesarCotizacion()">📋 COTIZAR</button>
+      <button id="btn-cobrar" class="btn-pay" onclick="procesarVenta()">💰 COBRAR</button>
+    </div>
+  </div>
+
+  <div id="modal-lamina" class="modal">
+    <div class="modal-content">
+      <h3>Vender Lámina</h3>
+      <p id="modal-prod-name" style="color:#666; margin-bottom:15px"></p>
+      <button class="modal-btn btn-full" onclick="addLamina('completa')">Completa - <span id="p-completo"></span></button>
+      <button class="modal-btn btn-half" onclick="addLamina('mitad')">Media (1/2) - <span id="p-mitad"></span></button>
+      <button class="modal-btn btn-cancel" onclick="closeModal()">Cancelar</button>
+    </div>
+  </div>
+
+  <div id="ticket-area"></div>
+
+<script>
+  let productos = [];
+  let config = {};
+  let cart = [];
+  let productoSeleccionado = null; 
+  const toMoney = (n) => '$' + Number(n).toLocaleString('es-CO', {maximumFractionDigits: 0});
+
+  window.onload = () => {
+    google.script.run.withSuccessHandler(data => { productos = data; renderGrid(); }).getProductos();
+    google.script.run.withSuccessHandler(data => { config = data; }).getConfig();
+  };
+
+  function renderGrid() {
+  const container = document.getElementById('grid');
+  container.innerHTML = '';
+  
+  productos.forEach(p => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    const imgUrl = p.imagen ? p.imagen : 'https://cdn-icons-png.flaticon.com/512/2652/2652218.png';
+    
+    let contenidoInterior = `
+      <img src="${imgUrl}" alt="${p.nombre}">
+      <div>
+        <h3>${p.nombre}</h3>
+        <div class="price">${toMoney(p.precio)}</div>
+        <div class="stock">Stock: ${p.stock}</div>
+    `;
+
+    const controlsDiv = document.createElement('div');
+    
+    if(String(p.tipo).toLowerCase() === 'lamina') {
+      const btn = document.createElement('button');
+      btn.className = 'btn-lamina';
+      btn.innerText = 'Seleccionar';
+      btn.onclick = () => abrirModalLamina(p); 
+      controlsDiv.appendChild(btn);
+    } else {
+      controlsDiv.innerHTML = `
+        <div class="card-controls">
+          <input type="number" id="qty-${p.id}" class="qty-input" value="1" min="1">
+          <button class="btn-add">Agregar</button>
+        </div>
+      `;
+      controlsDiv.querySelector('.btn-add').onclick = () => agregarUnidad(p.id);
+    }
+
+    card.innerHTML = contenidoInterior;
+    card.appendChild(controlsDiv);
+    container.appendChild(card);
+  });
+}
+
+  function agregarUnidad(idProducto) {
+    const prod = productos.find(p => p.id === idProducto);
+    const inputQty = document.getElementById(`qty-${idProducto}`);
+    const cantidad = parseInt(inputQty.value) || 1;
+
+    if(cantidad <= 0) return alert("Cantidad inválida");
+
+    agregarAlCarrito(prod, cantidad, prod.precio * cantidad, 'Unidad', cantidad);
+    inputQty.value = 1; 
+  }
+
+  function abrirModalLamina(p) {
+    productoSeleccionado = p; 
+    document.getElementById('modal-prod-name').innerText = p.nombre;
+    document.getElementById('p-completo').innerText = toMoney(p.precio);
+    document.getElementById('p-mitad').innerText = toMoney(p.precio / 2);
+    document.getElementById('modal-lamina').style.display = 'flex';
+  }
+
+  function closeModal() { document.getElementById('modal-lamina').style.display = 'none'; productoSeleccionado = null; }
+
+  function addLamina(formato) {
+    if(!productoSeleccionado) return;
+    let precio = productoSeleccionado.precio;
+    let cantInv = 1;
+    let desc = 'Completa';
+    let qtyVisual = 1;
+
+    if(formato === 'mitad') {
+      precio = precio / 2;
+      cantInv = 0.5;
+      desc = 'Media (1/2)';
+    }
+    agregarAlCarrito(productoSeleccionado, cantInv, precio, desc, 1);
+    closeModal();
+  }
+
+  function agregarAlCarrito(producto, cantInventario, precioTotalItem, descripcion, qtyVisualParam){
+    let item = cart.find(it => it.id === producto.id && it.desc === descripcion);
+
+    if (item) {
+      item.cantidadInv += cantInventario;
+      item.cantidadVisual += qtyVisualParam;
+      item.subtotal += precioTotalItem;
+    } else {
+      cart.push({
+        id: producto.id,
+        nombre: producto.nombre,
+        desc: descripcion,
+        cantidadInv: cantInventario,
+        cantidadVisual: qtyVisualParam, 
+        subtotal: precioTotalItem
+      });
+    }
+    renderCarrito();
+  }
+
+  function renderCarrito(){
+    const el = document.getElementById('cart-items'); 
+    el.innerHTML = '';
+    let total = 0;
+    
+    if(cart.length === 0) {
+      el.innerHTML = '<div style="text-align:center; padding:30px; color:#aaa;">Carrito Vacío</div>';
+      document.getElementById('total-display').innerText = '$0';
+      return;
+    }
+
+    cart.forEach((it, idx) => {
+      total += it.subtotal;
+      el.innerHTML += `
+        <div class="cart-item">
+          <div>
+            <strong>${it.nombre}</strong> <span style="color:#007bff; font-weight:bold">(x${it.cantidadVisual})</span><br>
+            <span style="color:#666">${it.desc}</span>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px">
+            <strong>${toMoney(it.subtotal)}</strong>
+            <button class="btn-remove" onclick="eliminarItem(${idx})">🗑️</button>
+          </div>
+        </div>`;
+    });
+    document.getElementById('total-display').innerText = toMoney(total);
+  }
+
+  function eliminarItem(index) {
+    cart.splice(index, 1);
+    renderCarrito();
+  }
+
+  // --- NUEVA LÓGICA: PROCESAR COTIZACIÓN ---
+  function procesarCotizacion() {
+    if(cart.length === 0) return alert("Carrito vacío. Agrega productos para cotizar.");
+    
+    const totalVenta = cart.reduce((acc, item) => acc + item.subtotal, 0);
+    
+    // Generamos un ID de ticket temporal y la fecha actual desde el navegador
+    const idCotizacion = 'COT-' + Math.random().toString(36).substr(2, 5).toUpperCase();
+    const fecha = new Date().toLocaleString('es-CO');
+    
+    // Llamamos a prepararTicket indicando que SÍ es una cotización (true)
+    prepararTicket(cart, totalVenta, idCotizacion, fecha, true);
+    window.print();
+    
+    // Ojo: Dejamos el carrito intacto. Así, si el cliente aprueba la cotización 
+    // en el mismo momento, solo tienes que hacer clic en "COBRAR".
+  }
+
+  // --- LÓGICA ORIGINAL: PROCESAR VENTA ---
+  function procesarVenta() {
+    if(cart.length === 0) return alert("Carrito vacío.");
+    const btn = document.getElementById('btn-cobrar');
+    btn.disabled = true; 
+    btn.innerText = "Procesando...";
+
+    const totalVenta = cart.reduce((acc, item) => acc + item.subtotal, 0);
+    
+    const itemsParaGuardar = cart.map(i => ({ 
+      id: i.id, 
+      nombre: i.nombre,
+      cantidad: i.cantidadInv, 
+      cantidadVisual: i.cantidadVisual 
+    }));
+
+    const ventaData = { items: itemsParaGuardar, total: totalVenta };
+
+    google.script.run.withSuccessHandler(res => {
+      if(res.exito){
+        // Llamamos a prepararTicket indicando que NO es una cotización (false)
+        prepararTicket(cart, totalVenta, res.id, res.fecha, false);
+        window.print();
+        
+        cart = [];
+        renderCarrito();
+        google.script.run.withSuccessHandler(d => { productos = d; renderGrid(); }).getProductos();
+      } else {
+        alert("Error: " + res.error);
+      }
+      btn.disabled = false;
+      btn.innerText = "💰 COBRAR";
+    }).registrarVenta(ventaData);
+  }
+
+ // --- PREPARAR TICKET ---
+ function prepararTicket(items, total, idVenta, fecha, esCotizacion = false) {
+    const area = document.getElementById('ticket-area');
+    if (!area) return; // Seguridad por si el elemento no existe
+
+    let itemsHtml = '';
+    items.forEach(it => {
+        itemsHtml += `
+        <div class="ticket-line">
+            <span>${it.nombre} (x${it.cantidadVisual})</span>
+            <span>${toMoney(it.subtotal)}</span>
+        </div>`;
+    });
+
+    // Base64 usando comillas invertidas (backticks) para evitar errores de sintaxis
+    const logoBase64 = "data:image/png;base64,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"; 
+    
+    // Cambiamos el texto dependiendo de si es cotización o venta
+    const tituloTicket = esCotizacion ? '*** COTIZACIÓN ***' : (config.nombre || 'FERRETERÍA');
+    const mensajePie = esCotizacion ? 'Válido por 15 días.<br>No es comprobante de pago.' : '¡Gracias por su compra!';
+
+    area.innerHTML = `
+      <div class="ticket">
+        <div class="ticket-header">
+          <img src="${logoBase64}" class="ticket-logo" width="150">
+          <h3 style="margin:5px 0">${tituloTicket}</h3>
+          <p style="margin:2px 0">NIT: ${config.nit || '---'}</p>
+          <p style="margin:2px 0">Tel: ${config.telefono || '---'}</p>
+          <div class="ticket-divider"></div>
+          <p style="margin:2px 0">${fecha}</p>
+          <p style="margin:0">#Ticket: ${idVenta}</p>
+        </div>
+
+        <div class="ticket-divider"></div>
+        ${itemsHtml}
+        <div class="ticket-divider"></div>
+
+        <div class="ticket-total">
+          <span>TOTAL:</span>
+          <span>${toMoney(total)}</span>
+        </div>
+
+        <div class="ticket-footer">
+          <p>${mensajePie}</p>
+        </div>
+      </div>
+    `;
+  }
+
+  
+</script>
+</body>
+</html>
